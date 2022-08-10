@@ -1,0 +1,91 @@
+pipeline{
+  agent any
+  tools {
+    maven 'Maven'
+  }
+   stages {
+    stage('Initialize') {
+      steps {
+        sh '''
+            echo "PATH = ${PATH}"
+            echo "M2_HOME = ${M2_HOME}"
+           '''
+      }
+    }
+     stage ('owasp') {
+       steps {
+         sh 'rm owasp* || true'
+         sh 'wget "https://raw.githubusercontent.com/Siddeshwarsid/webapp/master/owasp-dependency-check.sh" '
+         sh 'chmod +x owasp-dependency-check.sh'
+         sh 'bash owasp-dependency-check.sh'
+         sh 'cat /var/lib/jenkins/OWASP-Dependency-Check/reports/dependency-check-report.xml'
+       }
+     }
+        stage('UNIT TEST'){
+            steps {
+                sh 'mvn test'
+            }
+          
+              post {
+                always {
+                    junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'   
+                }
+            } 
+        }
+
+        stage('INTEGRATION TEST'){
+            steps {
+                sh 'mvn verify -DskipUnitTests'
+            }
+        }
+
+        stage ('CODE ANALYSIS WITH CHECKSTYLE'){
+            steps {
+                sh 'mvn checkstyle:checkstyle'
+            }
+            post {
+                success {
+                    echo 'Generated Analysis Result'
+                }
+            }
+        }
+
+     
+     stage('sonarQube') {
+       steps {
+         withSonarQubeEnv('sonar') {
+           sh 'mvn sonar:sonar'
+           sh 'cat target/sonar/report-task.txt'
+          }
+        }
+     }
+         
+           
+           stage("Quality Gate") {
+            steps {
+              timeout(time: 1, unit: 'HOURS') {
+                  waitForQualityGate abortPipeline: true, credentialsId: 'sonar-1'
+              }
+            }
+          }
+          
+       stage('build') {
+      steps {
+        sh 'mvn clean package'
+      }
+    }
+     
+     stage('deploy to tomcat') {
+       steps {
+         sshagent(['tomcat']) {
+           sh 'scp -o StrictHostKeyChecking=no target/*.war ubuntu@44.201.144.146:/prod/apache-tomcat-8.5.81/webapps/webapp.war'
+           ssh ec2-user@44.201.144.146 /prod/apache-tomcat-8.5.81/bin/shutdown.sh
+           ssh ec2-user@44.201.144.146 /prod/apache-tomcat-8.5.81/bin/startup.sh
+ 
+ 
+         }
+       }
+    }
+    
+  }
+}
