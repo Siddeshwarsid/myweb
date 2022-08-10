@@ -68,8 +68,8 @@ pipeline{
          sshagent(['tomcat']) {
          sh """
            scp -o StrictHostKeyChecking=no target/*.war ubuntu@44.201.144.146:/prod/apache-tomcat-8.5.81/webapps/webapp.war
-           ssh ubuntu@44.201.144.146 /prod/apache-tomcat-8.5.81/bin/shutdown.sh
-           ssh ubuntu@44.201.144.146 /prod/apache-tomcat-8.5.81/bin/startup.sh
+           sudo ssh ubuntu@44.201.144.146 /prod/apache-tomcat-8.5.81/bin/shutdown.sh
+           sudo ssh ubuntu@44.201.144.146 /prod/apache-tomcat-8.5.81/bin/startup.sh
            """
  
  
